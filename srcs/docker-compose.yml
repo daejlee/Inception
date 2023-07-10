@@ -1,0 +1,63 @@
+version: '3'
+
+volumes:
+  db-volume:
+    driver: local
+    driver_opts:
+      device: /home/daejlee/data/db-data
+      type: none 
+#도커가 볼륨을 관리하지 않고 호스트 시스템의 경로와 컨테이너 내부의 경로를 바인딩 하여 데이터를 공유한다.
+#호스트 시스템 특정 경로에 데이터가 이미 존재, 컨테이너 내부에서 사용하고자 할 때.
+			o: bind
+  wp-volume:
+    driver: local
+    driver_opts:
+      device: /home/daejlee/data/wp-data
+      type: none
+      o: bind
+services:
+  mariadb:
+    container_name: mariadb
+    image: mariadb
+    build: ./requirements/mariadb
+    env_file:
+      - .env
+    restart: always
+    networks:
+      - intra
+    volumes:
+      - db-volume:/var/lib/mysql
+#호스트의 db-volume을 컨테이너 내부의 /var/lib/mysql 경로에 마운트한다.
+#db파일이 호스틑 시스템의 볼륨에 저장되고 컨테이너 삭제시에도 데이터가 유지된다.
+  nginx:
+    container_name: nginx
+    image: nginx
+    build: ./requirements/nginx
+    env_file:
+      - .env
+    ports:
+      - 443:443
+#호스트와 컨테이너 간의 포트 매핑이다. 433포트에 매핑된다.
+    restart: always
+    networks:
+      - intra
+    volumes:
+      - wp-volume:/var/www/html
+    depends_on:
+      - wordpress
+  wordpress:
+    container_name: wordpress
+    image: wordpress
+    build: ./requirements/wordpress
+    env_file:
+      - .env
+    restart: always
+    networks:
+      - intra
+    volumes:
+      - wp-volume:/var/www/html
+    depends_on:
+      - mariadb
+networks:
+  intra:
+    driver: bridge
